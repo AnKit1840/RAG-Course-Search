@@ -1,0 +1,26 @@
+# Python virtual environments & bytecode
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local media & database directories (do not commit to git)
+Videos/
+audios/
+jsons/
+new_jsons/
+
+# Compiled ML/vector data
+embeddings.joblib
+
+# Output prompt/response text logs
+prompt.txt
+response.txt
+
+# OS metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
