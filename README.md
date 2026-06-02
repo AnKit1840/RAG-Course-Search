@@ -21,7 +21,7 @@ This project is built to solve a real-world e-learning problem: helping students
 ```mermaid
 graph TD
     %% Ingest Pipeline
-    subgraph Data Ingestion & Indexing (Offline)
+    subgraph offline["Data Ingestion & Indexing (Offline)"]
         A[Raw Tutorial Videos] -->|FFmpeg Audio Extraction| B[MP3 Audios]
         B -->|OpenAI Whisper ASR| C[Hindi-to-English Transcript Segments]
         C -->|Contextual Merging| D[Merged Semantic Chunks]
@@ -30,7 +30,7 @@ graph TD
     end
 
     %% Query Pipeline
-    subgraph Retrieval & Inference (Online)
+    subgraph online["Retrieval & Inference (Online)"]
         User[User Question] -->|Ollama: nomic-embed-text| QueryVec[Query Vector]
         QueryVec -->|Cosine Similarity Matching| F
         F -->|Top-K Context Retrived| Context[Video Title, Number, Start/End, Text]
