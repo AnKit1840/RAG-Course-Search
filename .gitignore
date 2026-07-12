@@ -14,13 +14,23 @@ new_jsons/
 
 # Compiled ML/vector data
 embeddings.joblib
+embeddings/
 
 # Output prompt/response text logs
 prompt.txt
 response.txt
+
+# Dependencies & Environments
+**/node_modules/
+.env
+.env.*
+!.env.example
 
 # OS metadata
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+
+# Old setup
+old_setup/
