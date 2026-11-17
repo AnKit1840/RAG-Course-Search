@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { uploadVideo, getJobs } from "../services/api";
 
 export default function AdminPortal({ onIngestComplete }) {
   const [jobs, setJobs] = useState([]);
@@ -11,41 +12,42 @@ export default function AdminPortal({ onIngestComplete }) {
   // Fetch job list from the backend Express server
   const fetchJobs = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/admin/jobs");
-      if (response.ok) {
-        const serverJobs = await response.json();
+      const serverJobs = await getJobs();
+      
+      setJobs(prev => {
+        // Find any local temporary jobs that are still uploading (ID starts with "temp-")
+        const activeTemps = prev.filter(j => j.id.toString().startsWith("temp-"));
         
-        setJobs(prev => {
-          // Find any local temporary jobs that are still uploading (ID starts with "temp-")
-          const activeTemps = prev.filter(j => j.id.toString().startsWith("temp-"));
-          
-          // Filter out local temp jobs that the server is now actively reporting
-          const unresolvedTemps = activeTemps.filter(temp => {
-            return !serverJobs.some(sJob => sJob.filename === temp.filename);
-          });
-          
-          // Combine server jobs with unresolved local temp jobs
-          return [...unresolvedTemps, ...serverJobs];
+        // Filter out local temp jobs that the server is now actively reporting
+        const unresolvedTemps = activeTemps.filter(temp => {
+          return !serverJobs.some(sJob => sJob.filename === temp.filename);
         });
         
-        // Check if any job completed and notify App component
-        serverJobs.forEach(job => {
-          if (job.status === "completed") {
-            if (isFirstLoadRef.current) {
-              // Silence completed notify on initial mount
-              completedJobsRef.current.add(job.id);
-            } else if (!completedJobsRef.current.has(job.id)) {
-              // Trigger notification exactly once when it transitions to completed
-              completedJobsRef.current.add(job.id);
-              onIngestComplete(job.filename);
-            }
+        // Combine server jobs with unresolved local temp jobs
+        return [...unresolvedTemps, ...serverJobs];
+      });
+      
+      // Check if any job completed and notify App component
+      serverJobs.forEach(job => {
+        if (job.status === "completed") {
+          if (isFirstLoadRef.current) {
+            // Silence completed notify on initial mount
+            completedJobsRef.current.add(job.id);
+          } else if (!completedJobsRef.current.has(job.id)) {
+            // Trigger notification exactly once when it transitions to completed
+            completedJobsRef.current.add(job.id);
+            onIngestComplete(job.filename);
           }
-        });
-        
-        isFirstLoadRef.current = false;
-      }
+        }
+      });
+      
+      isFirstLoadRef.current = false;
     } catch (error) {
       console.error("Error fetching jobs from server:", error);
+      // If session expired, the error message will indicate it
+      if (error.message.includes("Session expired")) {
+        console.warn("Admin session expired — please log in again.");
+      }
     }
   };
 
@@ -97,9 +99,6 @@ export default function AdminPortal({ onIngestComplete }) {
 
   // Upload file to the live backend Express endpoint
   const handleUpload = async (file) => {
-    const formData = new FormData();
-    formData.append("video", file);
-
     // Add local temporary job state
     const tempJobId = "temp-" + Date.now();
     const tempJob = {
@@ -114,16 +113,7 @@ export default function AdminPortal({ onIngestComplete }) {
     setJobs(prev => [tempJob, ...prev]);
 
     try {
-      const response = await fetch("http://localhost:5000/api/admin/upload", {
-        method: "POST",
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error(`Upload failed with status ${response.status}`);
-      }
-
-      const backendJob = await response.json();
+      const backendJob = await uploadVideo(file);
       
       // Replace temporary job with the backend job definition
       setJobs(prev => prev.map(job => job.id === tempJobId ? backendJob : job));

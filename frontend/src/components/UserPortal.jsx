@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { searchRAG, formatTime } from "../services/MockData";
+import { searchRAG, formatTime } from "../services/api";
 
-export default function UserPortal({ database }) {
+export default function UserPortal() {
   const [query, setQuery] = useState("");
   const [answer, setAnswer] = useState("");
   const [sources, setSources] = useState([]);

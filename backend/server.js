@@ -7,6 +7,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import axios from 'axios';
+import { testConnection } from './db.js';
+import { sessionMiddleware, authRouter, requireAdmin } from './auth.js';
 
 // Load config
 dotenv.config();
@@ -17,8 +19,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true
+}));
 app.use(express.json());
+
+// Session authentication middleware
+app.use(sessionMiddleware);
+
+// Auth routes (register, login, logout, me)
+app.use('/api/auth', authRouter);
 
 // Resolve paths
 const videosDir = path.resolve(__dirname, process.env.VIDEOS_DIR || '../Videos');
@@ -196,7 +207,7 @@ Instructions: Answer the user's question clearly in a natural human tone. Based 
 });
 
 // 2. Upload video (Admin)
-app.post('/api/admin/upload', upload.single('video'), (req, res) => {
+app.post('/api/admin/upload', requireAdmin, upload.single('video'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No video file provided' });
   }
@@ -263,12 +274,12 @@ app.post('/api/admin/upload', upload.single('video'), (req, res) => {
 });
 
 // 3. Get all upload jobs statuses (Admin polling)
-app.get('/api/admin/jobs', (req, res) => {
+app.get('/api/admin/jobs', requireAdmin, (req, res) => {
   res.json(Object.values(jobs));
 });
 
 // 4. Get list of processed lectures
-app.get('/api/admin/videos', (req, res) => {
+app.get('/api/admin/videos', requireAdmin, (req, res) => {
   try {
     if (!fs.existsSync(videosDir)) {
       return res.json([]);
@@ -283,7 +294,33 @@ app.get('/api/admin/videos', (req, res) => {
   }
 });
 
+// 5. Database Health Check
+app.get('/api/health/db', async (req, res) => {
+  const result = await testConnection();
+  if (result.success) {
+    res.json({
+      status: 'connected',
+      timestamp: result.timestamp,
+      version: result.version,
+    });
+  } else {
+    res.status(503).json({
+      status: 'disconnected',
+      error: result.error,
+    });
+  }
+});
+
 // Start Server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running locally on port ${PORT}`);
+
+  // Test database connection on startup
+  const dbStatus = await testConnection();
+  if (dbStatus.success) {
+    console.log(`PostgreSQL connected successfully at ${dbStatus.timestamp}`);
+  } else {
+    console.warn(`PostgreSQL connection failed: ${dbStatus.error}`);
+    console.warn('Server is running but database features will not work until the connection is resolved.');
+  }
 });

@@ -1,115 +1,240 @@
-# Video-RAG: Semantic Search & Q&A Assistant for Video Course Playlists
+# 🎬 Video-RAG: Full-Stack Semantic Search & Video Q&A Assistant
 
-An end-to-end **Retrieval-Augmented Generation (RAG)** pipeline designed to process video tutorials, automatically extract and transcribe Hindi audio into English text, generate high-dimensional semantic embeddings, and answer queries by guiding users to the exact video and timestamp.
+An end-to-end **Retrieval-Augmented Generation (RAG)** system designed for video course playlists. The application transcribes spoken Hindi video lectures, translates them into English, extracts semantic vector embeddings, and enables students to ask questions and receive instant answers with exact timestamps and video references.
 
-This project is built to solve a real-world e-learning problem: helping students navigate hours of video tutorials to find the exact moments where specific coding concepts (e.g., *Flexbox*, *Responsive design*, *React state*) are taught.
+Featuring a full-stack architecture with a **React (Vite) frontend**, a **Node.js/Express backend**, **PostgreSQL** authentication & session management, and a **Python/Ollama/Whisper** AI ingestion pipeline.
 
 ---
 
 ## 🚀 Key Features
 
-* **High-Fidelity ASR & Translation**: Uses OpenAI's **Whisper (`large-v2`)** to transcribe audio files, automatically translating Hindi spoken tutorials into English text segments.
-* **Semantic Embeddings**: Leverages local **Nomic Embeddings (`nomic-embed-text` via Ollama)** to translate transcribed chunks into high-dimensional vectors capturing semantic context.
-* **Vector Search & Similarity Matching**: Utilizes **Cosine Similarity** via `scikit-learn` to calculate similarity scores between user questions and video text chunks.
-* **Contextual Answer Synthesis**: Passes retrieved context (video title, tutorial number, start/end timestamps) into local LLMs (**Llama 3.2** / **Deepseek-R1**) to synthesize conversational answers with exact navigation guides.
-* **Crash-Resistant & General-Purpose**: Programmed with robust filename parsers that automatically extract video/tutorial metadata or fall back gracefully, making the pipeline compatible with any generic video format (not just specific course files).
+- **Automated Video Ingestion**: Instructors upload lectures through the Admin Portal. The backend runs an asynchronous ingestion pipeline with live progress reporting.
+- **Speech Recognition & Translation**: Uses OpenAI **Whisper** to transcribe Hindi audio lectures and translate them into timestamped English segments.
+- **Context-Aware Semantic Chunking**: Merges contiguous segments into minimum 15-second contextual chunks, preserving tutorial number, video title, and start/end timestamps.
+- **Local Vector Embeddings**: Generates 768-dimensional embeddings using local **Nomic Embeddings (`nomic-embed-text` via Ollama)** — zero cloud API costs.
+- **Instant Semantic Search & Cosine Matching**: Matches student questions against lecture content using vector similarity.
+- **Contextual Answer Synthesis**: Synthesizes clear, conversational answers with hyperlinked timestamps using local LLMs (**Llama 3.2** via Ollama).
+- **Interactive Video Player**: Jump directly to relevant lecture moments at the exact second.
+- **Role-Based Authentication**: Secure session-based authentication backed by **PostgreSQL** (`admin` vs `user` roles, bcrypt password hashing).
 
 ---
 
-## 📐 Project Architecture
+## 📐 System Architecture
 
 ```mermaid
 graph TD
-    %% Ingest Pipeline
-    subgraph offline["Data Ingestion & Indexing (Offline)"]
-        A[Raw Tutorial Videos] -->|FFmpeg Audio Extraction| B[MP3 Audios]
-        B -->|OpenAI Whisper ASR| C[Hindi-to-English Transcript Segments]
-        C -->|Contextual Merging| D[Merged Semantic Chunks]
-        D -->|Ollama: nomic-embed-text| E[768-Dim Vector Embeddings]
-        E -->|Pandas & Joblib| F[(Vector Datastore: embeddings.joblib)]
+    %% Clients
+    subgraph Client["Frontend (React + Vite :5173)"]
+        UI_User["Student Search Portal"]
+        UI_Admin["Instructor Admin Portal"]
+        UI_Auth["Auth Modal (Login/Register)"]
     end
 
-    %% Query Pipeline
-    subgraph online["Retrieval & Inference (Online)"]
-        User[User Question] -->|Ollama: nomic-embed-text| QueryVec[Query Vector]
-        QueryVec -->|Cosine Similarity Matching| F
-        F -->|Top-K Context Retrived| Context[Video Title, Number, Start/End, Text]
-        Context -->|Contextual Prompt Assembly| LLM[Ollama: Llama 3.2 / Deepseek-R1]
-        LLM -->|Synthesized Answer + Timestamps| Out[User Response]
+    %% Backend
+    subgraph Server["Backend (Node.js & Express :5000)"]
+        API_Auth["/api/auth/*"]
+        API_Search["/api/search (RAG)"]
+        API_Admin["/api/admin/upload & /jobs"]
+        API_Video["/videos (Static Stream)"]
+        CosSim["In-Memory Cosine Similarity"]
     end
+
+    %% Database
+    subgraph DB["PostgreSQL Database (:5432)"]
+        T_Users["users (Roles & Password Hashes)"]
+        T_Sessions["session (connect-pg-simple)"]
+    end
+
+    %% AI & Ingestion Pipeline
+    subgraph AI["AI Ingestion & Inference"]
+        PyIngest["ingest_single.py (Child Process)"]
+        FFmpeg["FFmpeg Audio Extractor"]
+        Whisper["OpenAI Whisper (Speech-to-Text & Translation)"]
+        Ollama["Ollama API (:11434)"]
+        Model_Embed["nomic-embed-text"]
+        Model_LLM["llama3.2"]
+        Filesystem[("embeddings/*.json")]
+    end
+
+    %% Interactions
+    UI_Auth <-->|Session Cookies| API_Auth
+    API_Auth <--> DB
+    UI_User -->|Query| API_Search
+    API_Search -->|Query Vector| Ollama
+    API_Search --> CosSim
+    CosSim <--> Filesystem
+    API_Search -->|Top-K Context| Model_LLM
+    Model_LLM -->|Answer + Timestamps| API_Search
+
+    UI_Admin -->|Video File| API_Admin
+    API_Admin -->|spawn()| PyIngest
+    PyIngest --> FFmpeg --> Whisper --> Ollama --> Model_Embed --> Filesystem
+    PyIngest -.->|stdout PROGRESS logs| API_Admin
+    API_Admin -.->|Poll Progress| UI_Admin
+    UI_User -->|Play Video| API_Video
 ```
 
 ---
 
 ## 🛠️ Tech Stack
 
-* **Programming Language**: Python 3.8+
-* **ML Models**: OpenAI Whisper (`large-v2`), Nomic Embed Text, Llama 3.2 / Llama 3.2-3B
-* **Text Search & Match**: Cosine Similarity (`scikit-learn`, `numpy`, `pandas`)
-* **Libraries**: `joblib`, `requests`, `subprocess`
-* **External Tools**: `ffmpeg`, `Ollama`
+| Domain | Technologies |
+| :--- | :--- |
+| **Frontend** | React 19, Vite, Modern CSS, Responsive Design |
+| **Backend** | Node.js, Express, Multer (file upload), Axios, `child_process` |
+| **Database & Auth** | PostgreSQL, `pg`, `connect-pg-simple`, `express-session`, `bcrypt` |
+| **AI / Machine Learning** | OpenAI Whisper (`small`), Ollama (`nomic-embed-text`, `llama3.2`) |
+| **Media & Audio** | FFmpeg, Python 3.8+ |
+
+---
+
+## 📁 Project Structure
+
+```text
+Rag Project/
+├── backend/
+│   ├── migrations/
+│   │   └── 001_auth_tables.sql  # PostgreSQL schema (users, sessions, seed admin)
+│   ├── auth.js                  # Authentication routes & session middleware
+│   ├── db.js                    # PostgreSQL connection pool & query helpers
+│   ├── server.js                # Express API server & static video streaming
+│   ├── .env.example             # Backend environment template
+│   └── package.json             # Backend dependencies
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── AdminPortal.jsx  # Video upload & live ingestion tracker
+│   │   │   ├── UserPortal.jsx   # Student RAG search & video playback
+│   │   │   └── LoginPortal.jsx  # Login/Register modal
+│   │   ├── services/
+│   │   │   └── api.js           # Centralized API fetch client with credentials
+│   │   ├── App.jsx              # Main shell with navigation & role routing
+│   │   └── main.jsx
+│   └── package.json             # Frontend dependencies
+├── Videos/                      # Stored video files (gitignored)
+├── audios/                      # Extracted audio tracks (.mp3) (gitignored)
+├── jsons/                       # Raw Whisper transcription outputs (gitignored)
+├── embeddings/                  # Processed chunk vectors (.json) (gitignored)
+├── ingest_single.py             # Single-video ingestion pipeline script
+├── requirements.txt             # Python dependencies
+├── .gitignore
+└── README.md
+```
 
 ---
 
 ## 🏃‍♂️ Getting Started
 
 ### 1. Prerequisites
-Make sure you have Python 3.8+, **FFmpeg** installed and added to your system environment variables, and **Ollama** running locally.
 
-* Install [Ollama](https://ollama.com/)
-* Pull the required models:
-  ```bash
-  ollama pull nomic-embed-text
-  ollama pull llama3.2
-  ```
+Make sure the following are installed and added to your system `PATH`:
+- **Node.js** (v18+)
+- **Python** (v3.8+)
+- **PostgreSQL** (v14+)
+- **FFmpeg** (accessible in command line as `ffmpeg`)
+- **Ollama** ([Download Ollama](https://ollama.com/))
 
-### 2. Installation
-Clone the repository and install the dependencies:
+Pull the required local AI models:
 ```bash
-git clone https://github.com/your-username/video-rag-assistant.git
-cd video-rag-assistant
-pip install -r requirements.txt
-```
-
-### 3. Pipeline Execution
-
-Place your tutorial videos inside the `Videos/` directory and run the pipeline scripts sequentially:
-
-#### Step 1: Extract Audio from Videos
-Extracts audio tracks from your video files:
-```bash
-python videos_to_audios-1.py
-```
-*(Handles both specific structured files and standard formats gracefully).*
-
-#### Step 2: Transcribe & Translate to JSON
-Runs the Whisper ASR model to transcribe the audio, translate it to English, and segment it:
-```bash
-python audio_to_jsons-2.py
-```
-
-#### Step 3: Merge Chunks (Optional Context Optimization)
-Groups short transcript segments into larger, cohesive chunks of text to maintain logical context:
-```bash
-python merge_chunks.py
-```
-
-#### Step 4: Generate Semantic Vector Embeddings
-Generates high-dimensional vector representations for all chunks and dumps them into the vector datastore:
-```bash
-python create_embeddings.py
-```
-
-#### Step 5: Query the RAG System
-Start the assistant and ask your question:
-```bash
-python query-5.py
+ollama pull nomic-embed-text
+ollama pull llama3.2
 ```
 
 ---
 
-## 🔮 Future Roadmap (Production Readiness)
-For scaling this prototype to a real-world enterprise system:
-1. **Migration to MongoDB Atlas Vector Search**: Replace local `joblib` file-based similarity search with database-native vector indexing (`$vectorSearch` aggregation) for speed and scalability.
-2. **Asynchronous Processing**: Utilize message queues (e.g., RabbitMQ, Celery) to run the heavy FFmpeg/Whisper ingestion pipeline in the background.
-3. **Full-Stack Application**: Wrap the system in a **Node.js/Express** backend and build an interactive **React** frontend featuring a video player that jumps to the exact timestamp when a search result is clicked.
+### 2. Database Setup
+
+1. Create a PostgreSQL database (e.g., `rag_db`):
+   ```sql
+   CREATE DATABASE rag_db;
+   ```
+2. Run the migration script located at `backend/migrations/001_auth_tables.sql` against `rag_db`:
+   ```bash
+   psql -U postgres -d rag_db -f backend/migrations/001_auth_tables.sql
+   ```
+   *(This creates the `users` and `session` tables and seeds a default admin account).*
+
+---
+
+### 3. Python Environment Setup
+
+Install Python dependencies for audio processing and Whisper transcription:
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+### 4. Backend Setup
+
+1. Navigate to the `backend` folder:
+   ```bash
+   cd backend
+   npm install
+   ```
+2. Create your `.env` file from the provided example:
+   ```bash
+   cp .env.example .env
+   ```
+3. Update `.env` with your PostgreSQL credentials:
+   ```env
+   PORT=5000
+   OLLAMA_BASE_URL=http://localhost:11434
+   VIDEOS_DIR=../Videos
+   DB_DIR=../embeddings
+   SESSION_SECRET=your_super_secret_session_key
+   DATABASE_URL=postgres://postgres:postgres@localhost:5432/rag_db
+   ```
+4. Start the backend development server:
+   ```bash
+   npm run dev
+   ```
+   The server will start on `http://localhost:5000` and confirm the PostgreSQL connection.
+
+---
+
+### 5. Frontend Setup
+
+1. Open a new terminal and navigate to `frontend`:
+   ```bash
+   cd frontend
+   npm install
+   ```
+2. Start the Vite development server:
+   ```bash
+   npm run dev
+   ```
+3. Open `http://localhost:5173` in your browser.
+
+---
+
+## 🔐 Default Admin Credentials
+
+For uploading lectures and testing the admin ingestion portal, use the pre-seeded account:
+- **Username:** `admin`
+- **Password:** `admin123`
+
+*(You can also register a regular user account directly from the UI).*
+
+---
+
+## 📡 API Overview
+
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | Register new user account | Public |
+| `POST` | `/api/auth/login` | Log in and receive session cookie | Public |
+| `POST` | `/api/auth/logout` | Terminate session | Authenticated |
+| `GET` | `/api/auth/me` | Fetch active user session profile | Public |
+| `POST` | `/api/search` | Query RAG engine for answer & sources | Public |
+| `POST` | `/api/admin/upload` | Upload video lecture & start ingestion | Admin Only |
+| `GET` | `/api/admin/jobs` | Get real-time ingestion job statuses | Admin Only |
+| `GET` | `/api/admin/videos` | List all processed videos | Admin Only |
+| `GET` | `/videos/:filename` | Stream video file directly | Public |
+| `GET` | `/api/health/db` | PostgreSQL connectivity healthcheck | Public |
+
+---
+
+## 📄 License
+
+This project is open-source and available under the [MIT License](LICENSE).
