@@ -22,7 +22,7 @@ Featuring a full-stack architecture with a **React (Vite) frontend**, a **Node.j
 ## 📐 System Architecture
 
 ```mermaid
-graph TD
+flowchart TD
     %% Clients
     subgraph Client["Frontend (React + Vite :5173)"]
         UI_User["Student Search Portal"]
@@ -67,7 +67,7 @@ graph TD
     Model_LLM -->|Answer + Timestamps| API_Search
 
     UI_Admin -->|Video File| API_Admin
-    API_Admin -->|spawn()| PyIngest
+    API_Admin -->|"spawn()"| PyIngest
     PyIngest --> FFmpeg --> Whisper --> Ollama --> Model_Embed --> Filesystem
     PyIngest -.->|stdout PROGRESS logs| API_Admin
     API_Admin -.->|Poll Progress| UI_Admin
