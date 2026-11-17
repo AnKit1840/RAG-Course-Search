@@ -66,7 +66,7 @@ export default function UserPortal() {
           <input
             type="text"
             className="search-input"
-            placeholder="Ask anything (e.g., 'how to install vs code', 'what is padding and margin', 'seo')"
+            placeholder="Ask a question about the video lectures..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -75,19 +75,7 @@ export default function UserPortal() {
           </button>
         </form>
 
-        {/* Quick links to help user search */}
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: "12px", fontWeight: "600", color: "#64748b" }}>Try asking:</span>
-          <button type="button" className="btn-secondary" style={{ padding: "4px 8px", fontSize: "12px" }} onClick={() => { setQuery("how to install VS Code"); setTimeout(handleSearch, 50); }}>
-            VS Code installation
-          </button>
-          <button type="button" className="btn-secondary" style={{ padding: "4px 8px", fontSize: "12px" }} onClick={() => { setQuery("what is margin and padding"); setTimeout(handleSearch, 50); }}>
-            Margin & Padding
-          </button>
-          <button type="button" className="btn-secondary" style={{ padding: "4px 8px", fontSize: "12px" }} onClick={() => { setQuery("core web vitals and seo"); setTimeout(handleSearch, 50); }}>
-            SEO & Web Vitals
-          </button>
-        </div>
+
       </div>
 
       {/* Answer section */}

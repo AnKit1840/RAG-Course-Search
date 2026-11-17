@@ -5,8 +5,8 @@ export default function LoginPortal({ onLogin }) {
   // mode: "select" (Portal selection) | "admin-login" (Instructor Auth Form)
   const [mode, setMode] = useState("select");
   const [isRegistering, setIsRegistering] = useState(false);
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin123");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -293,20 +293,7 @@ export default function LoginPortal({ onLogin }) {
               )}
             </div>
 
-            {/* Hint for default admin */}
-            {!isRegistering && (
-              <div style={{
-                marginTop: "16px",
-                padding: "10px",
-                backgroundColor: "#f8fafc",
-                borderRadius: "8px",
-                fontSize: "11px",
-                color: "#64748b",
-                textAlign: "center"
-              }}>
-                💡 Default instructor credentials: <strong>admin</strong> / <strong>admin123</strong>
-              </div>
-            )}
+
           </>
         )}
       </div>
