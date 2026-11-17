@@ -207,17 +207,6 @@ pip install -r requirements.txt
 3. Open `http://localhost:5173` in your browser.
 
 ---
-
-## 🔐 Default Admin Credentials
-
-For uploading lectures and testing the admin ingestion portal, use the pre-seeded account:
-- **Username:** `admin`
-- **Password:** `admin123`
-
-*(You can also register a regular user account directly from the UI).*
-
----
-
 ## 📡 API Overview
 
 | Method | Endpoint | Description | Auth Required |
